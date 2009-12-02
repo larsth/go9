@@ -1,6 +1,14 @@
 package main
 
-import fmt "fmt"
+import (
+	"io";
+	"fmt";
+	"bufio";
+	"reflect";
+	"strings";
+	"encoding/base64";
+	"encoding/binary";
+)
 
 const (
 	VERSION = "9P2000";
@@ -14,12 +22,14 @@ const (
 	MAX_FLEN = 128;
 	MAX_ULEN = 32;
 	MAX_WELEM = 16;
+)
 
+const (
 	// From libc.h in p9p
-	OREAD = 0;
-	OWRITE = 1;
-	ORDWR = 2;
-	OEXEC = 3;
+	OREAD = iota;
+	OWRITE;
+	ORDWR;
+	OEXEC;
 	OTRUNC = 16;
 	OCEXEC = 32;
 	ORCLOSE = 64;
@@ -28,17 +38,21 @@ const (
 	OEXCL = 0x1000;
 	OLOCK = 0x2000;
 	OAPPEND = 0x4000;
+)
 
+const (
 	// Bits for Qid
-	QTDIR = 0x80;
-	QTAPPEND = 0x40;
-	QTEXCL = 0x20;
-	QTMOUNT = 0x10;
-	QTAUTH = 0x08;
-	QTTMP = 0x04;
-	QTSYMLINK = 0x02;
-	QTFILE = 0x00;
+	QTFILE = 1 << iota;
+	QTSYMLINK;
+	QTTMP;
+	QTAUTH;
+	QTMOUNT;
+	QTEXCL;
+	QTAPPEND;
+	QTDIR;
+)
 
+const (
 	// Bits for Dir
 	DMDIR = 0x80000000;
 	DMAPPEND = 0x40000000;	
@@ -76,6 +90,78 @@ func prepareMessages() (msg map[string] int, msgFmt map[int] string) {
 	}
 	
 	return message, messageFmt;
+}
+
+func sendTwalk(buf io.Writer, args ...) {
+	
+}
+
+func sendRwalk(buf io.Writer, args ...) {
+	
+}
+
+func sendStat(buf io.Writer, args ...) {
+	
+}
+
+func sendMessage(socket io.Writer, tag uint16, typ uint8, args ...) {
+	en = binary.BigEndian;
+	buf := bufio.NewWriter();
+	binary.Write(buf, en, typ);
+	binary.Write(buf, en, tag);
+	
+	argnum := 0;
+	format := strings.Bytes(messageFmt[typ]);
+	fields := reflect.NewValue(args).(*reflect.StructValue);
+	for i := 0; i < len(format); i++ {
+		switch format[i] {
+		case '1':
+			// 1 byte number
+			binary.Write(buf, en, int8(fields.Field(argnum));
+		case '2':
+			// 2 byte number
+			binary.Write(buf, en, int16(fields.Field(argnum));
+		case '4':
+			// 4 byte number
+			binary.Write(buf, en, int32(fields.Field(argnum));
+		case '8':
+			// 8 byte number
+			binary.Write(buf, en, int64(fields.Field(argnum));
+		case 'S':
+			// Variable string with 2 byte length
+			str := fields.Field(argnum).Get();
+			binary.Write(buf, en, int16(len(str)));
+			buf.Write(strings.Bytes(str));
+		case 'D':
+			// Variable string with 4 byte length
+			str := fields.Field(argnum).Get();
+			binary.Write(buf, en, int32(len(str)));
+			buf.Write(strings.Bytes(str));
+		case 'Q':
+			// QID 13byte value = [type, version, path]
+			binary.Write(buf, en, int8(fields.Field(argnum));
+			binary.Write(buf, en, int16(fields.Field(argnum + 1));
+			binary.Write(buf, en, int64(fields.Field(argnum + 2));
+		case '{':
+			k := i + 1;
+			ftype := "";
+			while format[k] != '}' {
+				ftype += format[k];
+				k += 1;
+			}
+			switch format {
+				case "Twalk":
+					sendTwalk(buf, args);
+				case "Rwalk":
+					sendRwalk(buf, args);
+				case "Stat":
+					sendStat(buf, args);
+			}
+		default:
+			// Invalid format type!
+		}
+		j += 1;
+	}	
 }
 
 func main() {
